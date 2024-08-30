@@ -110,10 +110,19 @@ class Lexer:
         self.advance()  # Skip the closing quote
         return result, start_column
     
+    def skip_comment(self):
+        while self.current_char is not None and self.current_char != "\n":
+            self.advance()
+        self.advance()
+    
     def get_next_token(self):
         while self.current_char is not None:
             if self.current_char.isspace():
                 self.skip_whitespace()
+                continue
+
+            if self.current_char == "#":
+                self.skip_comment()
                 continue
             
             if self.current_char.isalpha() or self.current_char == "_":

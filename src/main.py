@@ -51,6 +51,7 @@ changeBrand(mycar, mycar.brand)
 """
 
 input_code3 = """
+# Array example
 dim myArray[10]: int
 let index: int = 2
 myArray[index] = 42
