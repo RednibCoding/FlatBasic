@@ -121,23 +121,8 @@ class Semanter:
         self.error(f"Unknown binary operator {node.op}", node)
 
     def promote_type(self, left_type, right_type):
-        # Define a type hierarchy
-        type_hierarchy = {
-            "char": 1,
-            "uchar": 2,
-            "short": 3,
-            "ushort": 4,
-            "int": 5,
-            "uint": 6,
-            "size": 7,
-            "long": 8,
-            "ulong": 9,
-            "float": 10,
-            "double": 11
-        }
-
         # Promote to the type with the highest rank
-        if type_hierarchy[left_type] > type_hierarchy[right_type]:
+        if Syntax.numeric_type_hierarchy[left_type] > Syntax.numeric_type_hierarchy[right_type]:
             return left_type
         else:
             return right_type
@@ -170,8 +155,6 @@ class Semanter:
             return Symbol(var_type='double')
         else:
             return Symbol(var_type='int')
-
-
 
     def visit_StringNode(self, node):
         return Symbol(var_type='string')
@@ -213,8 +196,6 @@ class Semanter:
 
         # If the value rank is higher than the variable rank, it's not compatible
         return False
-
-
     
     def is_value_in_range(self, value, var_type):
         # Convert the string value to an integer or float
@@ -284,8 +265,6 @@ class Semanter:
         else:
             self.global_scope[node.var_name] = value_symbol
 
-
-
     def visit_AssignmentNode(self, node):
         if isinstance(node.value, NumberNode):
             expected_type = self.get_variable_type(node.var_name)
@@ -353,7 +332,6 @@ class Semanter:
         # Pointer type compatibility check
         if value_symbol.is_pointer != array_symbol.is_pointer:
             self.error(f"Pointer mismatch: cannot assign {'a pointer' if value_symbol.is_pointer else 'a non-pointer'} to array of {'pointers' if array_symbol.is_pointer else 'non-pointers'}", node)
-
 
     def visit_ArrayAccessNode(self, node):
         if node.name not in self.global_scope:
