@@ -1,3 +1,4 @@
+from symbol import Symbol
 import sys
 from nodes import *
 from tokentype import TokenType
@@ -11,18 +12,21 @@ class Parser:
         self.user_type_table = {} # Table for user-defined types
     
     def error(self, message="Syntax error"):
-        print(f"error at {self.current_token.srcpos.filename}:{self.current_token.srcpos.line}:{self.current_token.srcpos.column} : {message}")
+        print(f"[error] {self.current_token.srcpos.filename}:{self.current_token.srcpos.line}:{self.current_token.srcpos.column}:\n\t-> {message}")
         sys.exit()
+
+    def advance(self):
+        self.current_token = self.lexer.get_next_token()
 
     def eat(self, token_type):
         if self.current_token.type == token_type:
-            self.current_token = self.lexer.get_next_token()
+            self.advance()
         else:
             self.error(f"Expected token {token_type}, got '{self.current_token.value}' {self.current_token.type}")
     
     def expect(self, token_value):
         if self.current_token.value == token_value:
-            self.current_token = self.lexer.get_next_token()
+            self.advance()
         else:
             self.error(f"Expected token '{token_value}', got '{self.current_token.value}'")
     
@@ -30,9 +34,8 @@ class Parser:
         symbol_table = self.global_symbol_table if scope == 'global' else self.local_symbol_table
         if var_name in symbol_table:
             self.error(f"Variable '{var_name}' already declared in this scope")
-        # Store the variable as a dictionary with 'type' and 'is_pointer'
-        symbol_table[var_name] = {'type': var_type, 'is_pointer': is_pointer}
-
+        # Store the variable as a Symbol object
+        symbol_table[var_name] = Symbol(var_type=var_type, is_pointer=is_pointer)
 
     
     def parse_field_access(self, instance_name):
@@ -41,33 +44,34 @@ class Parser:
 
         # Determine the type of the initial instance from the local or global scope
         if self.local_symbol_table is not None and instance_name in self.local_symbol_table:
-            current_type = self.local_symbol_table[instance_name]
+            current_symbol = self.local_symbol_table[instance_name]
         elif instance_name in self.global_symbol_table:
-            current_type = self.global_symbol_table[instance_name]
+            current_symbol = self.global_symbol_table[instance_name]
         else:
-            self.error(f"Variable '{instance_name}' not declared")
+            self.error(f"Variable '{instance_name}' not declared", token)
+
+        current_type = current_symbol.var_type
 
         while self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '.':
             self.eat(TokenType.SEPARATOR)  # Eat '.'
             field_name = self.current_token.value
             self.eat(TokenType.IDENTIFIER)
 
-            # Check if the field exists on the current type
+            # Check if the current_type is a user-defined type and exists in the user_type_table
             if current_type not in self.user_type_table:
-                self.error(f"Type '{current_type}' is not a user-defined type")
+                self.error(f"Type '{current_type}' is not a user-defined type", token)
 
             fields = self.user_type_table[current_type]
             if field_name not in fields:
-                self.error(f"Field '{field_name}' does not exist on type '{current_type}'")
+                self.error(f"Field '{field_name}' does not exist on type '{current_type}'", token)
 
             # Update the current type to the type of the field
-            current_type = fields[field_name][0]  # Get the type of the field
+            current_type = fields[field_name].var_type  # Get the type of the field
 
             # Update the instance to the new FieldAccessNode
-            instance = FieldAccessNode(token.srcpos, instance, field_name)
+            instance = FieldAccessNode(token.srcpos, instance, field_name, current_type)
 
         return instance
-
     
     def factor(self):
         token = self.current_token
@@ -258,6 +262,11 @@ class Parser:
             self.eat(TokenType.IDENTIFIER)
             self.expect(":")
             
+            is_pointer = False
+            if self.current_token.value == "ptr":
+                is_pointer = True
+                self.eat(TokenType.KEYWORD) # skip ptr keyword
+            
             # Check if the type is built-in or user-defined
             if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
                 param_type = self.current_token.value
@@ -265,12 +274,17 @@ class Parser:
             else:
                 self.error(f"Expected a valid type for parameter '{param_name}', got '{self.current_token.value}'")
             
-            params.append((param_name, param_type))
-            self.declare_variable(param_name, param_type, scope='local')
+            params.append((param_name, param_type, is_pointer))
+            self.declare_variable(param_name, param_type, is_pointer, scope='local')
             if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == ',':
                 self.expect(",")
         self.expect(")")
         self.expect(":")
+
+        is_pointer = False
+        if self.current_token.value == "ptr":
+            is_pointer = True
+            self.eat(TokenType.KEYWORD) # skip ptr keyword, this will be resolved in semant step
         
         # Check if the return type is built-in or user-defined
         if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
@@ -382,7 +396,7 @@ class Parser:
             self.eat(TokenType.SEPARATOR)
             field_name = self.current_token.value
             self.eat(TokenType.IDENTIFIER)
-            node = FieldAccessNode(token.srcpos, node, field_name)
+            node = FieldAccessNode(token.srcpos, node, field_name, None)
         
         self.expect("=")
         
@@ -406,6 +420,12 @@ class Parser:
             self.eat(TokenType.IDENTIFIER)
             self.expect(":")
             
+            # Check for pointer type
+            is_pointer = False
+            if self.current_token.value == "ptr":
+                is_pointer = True
+                self.eat(TokenType.KEYWORD)
+            
             # Check if the type is built-in or user-defined
             if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
                 field_type = self.current_token.value
@@ -413,13 +433,14 @@ class Parser:
             else:
                 self.error(f"Expected a valid type for field '{field_name}', got '{self.current_token.value}'")
             
-            # Handle default values
+            # Handle default values (currently stored for future use)
             default_value = None
             if self.current_token.type == TokenType.OPERATOR and self.current_token.value == '=':
                 self.eat(TokenType.OPERATOR)
                 default_value = self.expr()
             
-            fields[field_name] = (field_type, default_value)
+            # Store the field as a Symbol object in the fields dictionary
+            fields[field_name] = Symbol(var_type=field_type, is_pointer=is_pointer, default_value=default_value)
         
         self.expect("tend")
         
@@ -427,6 +448,7 @@ class Parser:
         self.user_type_table[type_name] = fields
         
         return TypeNode(type_name, fields)
+
 
     def parse_new_instance(self):
         self.expect("new")
@@ -438,11 +460,16 @@ class Parser:
             self.eat(TokenType.KEYWORD)
 
         type_name = self.current_token.value
-        if type_name not in self.user_type_table:
+
+        # Check if the type is a user-defined type or a built-in primitive type
+        if type_name not in self.user_type_table and type_name not in self.lexer.data_types:
             self.error(f"Type '{type_name}' is not defined")
-        self.eat(TokenType.IDENTIFIER)
+        
+        self.advance()
+        # self.eat(TokenType.IDENTIFIER)
 
         return NewInstanceNode(type_name, is_pointer)
+
 
 
     

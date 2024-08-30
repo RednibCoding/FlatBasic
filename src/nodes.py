@@ -229,7 +229,7 @@ class ProcNode(ASTNode):
     
     def __repr__(self, indent=0):
         ind = '    ' * indent
-        params = ', '.join(f"{name}: {type}" for name, type in self.params)
+        params = ', '.join(f"{name}: {type}" for name, type, _ in self.params)
         body = '\n'.join(stmt.__repr__(indent + 1) for stmt in self.body_statements)
         return (f"{ind}{self.node_name}(\n"
                 f"{ind}  '{self.name}',\n"
@@ -252,14 +252,14 @@ class DimNode(ASTNode):
     def __init__(self, srcpos, array_name, size, array_type):
         self.node_name = "DimNode"
         self.srcpos = srcpos
-        self.array_name = array_name
+        self.name = array_name
         self.size = size
         self.array_type = array_type
     
     def __repr__(self, indent=0):
         ind = '    ' * indent
         return (f"{ind}{self.node_name}(\n"
-                f"{ind}  '{self.array_name}',\n"
+                f"{ind}  '{self.name}',\n"
                 f"{self.size.__repr__(indent + 1)},\n"
                 f"{ind}  Type: {self.array_type}\n"
                 f"{ind})")
@@ -268,12 +268,12 @@ class ArrayAccessNode(ASTNode):
     def __init__(self, srcpos, array_name, index):
         self.node_name = "ArrayAccessNode"
         self.srcpos = srcpos
-        self.array_name = array_name
+        self.name = array_name
         self.index = index
     
     def __repr__(self, indent=0):
         ind = '    ' * indent
-        return f"{ind}{self.node_name}(\n{ind}  '{self.array_name}',\n{self.index.__repr__(indent + 1)}\n{ind})"
+        return f"{ind}{self.node_name}(\n{ind}  '{self.name}',\n{self.index.__repr__(indent + 1)}\n{ind})"
 
 class ProgramNode(ASTNode):
     def __init__(self, srcpos, statements):
@@ -293,8 +293,12 @@ class TypeNode(ASTNode):
     
     def __repr__(self, indent=0):
         ind = '    ' * indent
-        fields_repr = '\n'.join(f"{ind}  {name}: {type} = {value}" for name, (type, value) in self.fields.items())
+        fields_repr = '\n'.join(
+            f"{ind}  {name}: {symbol.var_type}{' ptr' if symbol.is_pointer else ''}" 
+            for name, symbol in self.fields.items()
+        )
         return f"{ind}TypeNode({self.type_name})\n{fields_repr}"
+
 
 class NewInstanceNode:
     def __init__(self, type_name, is_pointer):
@@ -307,11 +311,12 @@ class NewInstanceNode:
         return f"{indent_str}NewInstanceNode({pointer_str}{self.type_name})"
 
 class FieldAccessNode(ASTNode):
-    def __init__(self, srcpos, instance, field_name):
+    def __init__(self, srcpos, instance, field_name, field_type):
         self.srcpos = srcpos
         self.instance = instance
-        self.field_name = field_name
+        self.name = field_name
+        self.field_type = field_type
     
     def __repr__(self, indent=0):
         ind = '    ' * indent
-        return f"{ind}FieldAccessNode(\n{self.instance.__repr__(indent + 1)},\n{ind}  Field: {self.field_name}\n{ind})"
+        return f"{ind}FieldAccessNode(\n{self.instance.__repr__(indent + 1)},\n{ind}  Field: {self.name}:{self.field_type}\n{ind})"

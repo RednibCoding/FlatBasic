@@ -3,9 +3,9 @@ from parser import Parser
 from semanter import Semanter
 
 # Example test program
-input_code = """
-proc calculate(a: int, b: int): flt
-    let result: flt = (a + b)
+input_code1 = """
+proc calculate(a: int, b: int): float
+    let result: float = (a + b)
     return result
 pend
 
@@ -29,6 +29,14 @@ endif
 """
 
 input_code2 = """
+let x: char = 100
+x = 100
+let y: short = 10
+y = x
+
+dim myArray[10]: char
+myArray[0] = 100
+
 type Engine
     field speed: float = 10
 tend
@@ -38,12 +46,12 @@ type Car
     field engine: Engine
 tend
 
-let mycar: Car = new Car
+let mycar: ptr Car = new ptr Car
 let carSpeed: float = mycar.engine.speed
 carSpeed = mycar.engine.speed
 mycar.engine.speed = 20
 
-proc changeBrand(car: Car, newBrand: string): void
+proc changeBrand(car: ptr Car, newBrand: string): void
     car.brand = newBrand
 pend
 
@@ -56,8 +64,8 @@ dim myArray[10]: int
 let index: int = 2
 myArray[index] = 42
 
-let invalidIndex: float = 2.5
-myArray[invalidIndex] = 100  # This should trigger an error
+let invalidIndex: int = 2
+myArray[invalidIndex] = 100
 
 let x: double = 5.5
 let y: int = 10
@@ -65,14 +73,9 @@ let z: double = x + y  # This should promote y to double
 """
 
 input_code4 = """
+let myIntPtr: ptr int = new ptr int
 
-type Car
-tend
-
-let myIntPtr: ptr int = 20
-let myCarPtr: ptr Car = new ptr Car
-
-let x: int = myIntPtr + 5
+let x: ptr int = myIntPtr + 5
 let y: ptr int = myIntPtr + 1
 let z: int = myIntPtr == y  # Comparison between pointers should be valid
 """
