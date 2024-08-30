@@ -33,24 +33,30 @@ class Parser:
     
     def factor(self):
         token = self.current_token
-        if token.type == TokenType.INT or token.type == TokenType.FLT:
+        if token.type == TokenType.SEPARATOR and token.value == '(':
+            self.expect('(')  # Eat '('
+            node = self.expr()
+            self.expect(')')
+            return node
+        elif token.type == TokenType.INT or token.type == TokenType.FLT:
             self.eat(token.type)
             return NumberNode(token.srcpos, token.value)
         elif token.type == TokenType.IDENTIFIER:
             self.eat(TokenType.IDENTIFIER)
             if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '(':
-                return self.parse_function_call(token.value)  # Pass the function name
+                return self.parse_function_call(token.value)
             if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '[':
-                self.expect("[")  # Eat '['
+                self.expect("[")
                 index = self.expr()
-                self.expect("]")  # Eat ']'
+                self.expect("]")
                 return ArrayAccessNode(token.srcpos, token.value, index)
             return IdentifierNode(token.srcpos, token.value)
         elif token.type == TokenType.STRING:
             self.eat(TokenType.STRING)
             return StringNode(token.srcpos, token.value)
         else:
-            self.error("Unexpected token")
+            self.error(f"Unexpected token '{token.value}'")
+
 
     def term(self):
         node = self.factor()
@@ -63,12 +69,55 @@ class Parser:
         return node
     
     def expr(self):
+        return self.logical_or()
+
+    def additive(self):
         node = self.term()
         
         while self.current_token.type == TokenType.OPERATOR and self.current_token.value in '+-':
             token = self.current_token
             self.eat(TokenType.OPERATOR)
             node = BinOpNode(token.srcpos, node, token.value, self.term())
+        
+        return node
+    
+    def comparison(self):
+        node = self.additive()
+        
+        while self.current_token.type == TokenType.OPERATOR and self.current_token.value in ['<', '<=', '>', '>=']:
+            token = self.current_token
+            self.eat(TokenType.OPERATOR)
+            node = BinOpNode(token.srcpos, node, token.value, self.additive())
+        
+        return node
+    
+    def equality(self):
+        node = self.comparison()
+        
+        while self.current_token.type == TokenType.OPERATOR and self.current_token.value in ['==', '!=']:
+            token = self.current_token
+            self.eat(TokenType.OPERATOR)
+            node = BinOpNode(token.srcpos, node, token.value, self.comparison())
+        
+        return node
+    
+    def logical_and(self):
+        node = self.equality()
+        
+        while self.current_token.type == TokenType.KEYWORD and self.current_token.value == 'and':
+            token = self.current_token
+            self.eat(TokenType.KEYWORD)
+            node = BinOpNode(token.srcpos, node, token.value, self.equality())
+        
+        return node
+
+    def logical_or(self):
+        node = self.logical_and()
+        
+        while self.current_token.type == TokenType.KEYWORD and self.current_token.value == 'or':
+            token = self.current_token
+            self.eat(TokenType.KEYWORD)
+            node = BinOpNode(token.srcpos, node, token.value, self.logical_and())
         
         return node
     
@@ -101,6 +150,7 @@ class Parser:
         if self.current_token.type == TokenType.KEYWORD and self.current_token.value == 'else':
             self.expect("else")  # Eat ELSE
             false_branch = self.statement()
+        self.expect("endif")
         return IfNode(token.srcpos, condition, true_branch, false_branch)
     
     def parse_for(self):

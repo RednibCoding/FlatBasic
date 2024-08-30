@@ -29,10 +29,39 @@ class Semanter:
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
         
-        if left_type != right_type:
-            self.error(f"type mismatch in binary operation: {left_type} vs {right_type}", node)
+        # Arithmetic operations
+        if node.op in ['+', '-', '*', '/']:
+            if left_type not in ['int', 'flt'] or right_type not in ['int', 'flt']:
+                self.error(f"Arithmetic operations require numeric operands, got {left_type} and {right_type}", node)
+            
+            # Promote to 'flt' if either operand is a float
+            if left_type == 'flt' or right_type == 'flt':
+                return 'flt'
+            return 'int'
         
-        return left_type
+        # Comparison operations
+        if node.op in ['<', '<=', '>', '>=', '==', '!=']:
+            if left_type not in ['int', 'flt'] or right_type not in ['int', 'flt']:
+                self.error(f"Comparison operations require numeric operands, got {left_type} and {right_type}", node)
+            
+            # Allow comparison between int and flt
+            if left_type != right_type:
+                if 'int' in [left_type, right_type] and 'flt' in [left_type, right_type]:
+                    return 'int'  # Comparison result is always 'int'
+                else:
+                    self.error(f"Comparison operations require compatible numeric types, got {left_type} and {right_type}", node)
+            
+            # Comparisons return 'int' as a boolean type
+            return 'int'
+        
+        # Logical operations
+        if node.op in ['and', 'or']:
+            if left_type != 'int' or right_type != 'int':
+                self.error(f"Logical operations require integer (boolean) operands, got {left_type} and {right_type}", node)
+            return 'int'
+        
+        self.error(f"Unknown binary operator {node.op}", node)
+
 
     def visit_NumberNode(self, node):
         return 'int' if '.' not in str(node.value) else 'flt'

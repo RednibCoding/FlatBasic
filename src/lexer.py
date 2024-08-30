@@ -72,11 +72,58 @@ class Lexer:
                 token_length = self.column - start_column
                 if value in ['int', 'flt', 'str', 'chr', 'void']:
                     return Token(TokenType.DATATYPE, value, SrcPos(self.filename, self.line, start_column, token_length))
-                if value in ['let', 'end', 'cls', 'if', 'then', 'else', 'for', 'to', 'next', 'proc', 'pend', 'dim', 'while', 'wend', 'do', 'loop', 'select', 'case', 'return']:
+                if value in ['let', 'end', 'cls', 'if', 'then', 'else', 'endif' 'for', 'to', 'next', 'proc', 'pend', 'dim', 'while', 'wend', 'do', 'loop', 'select', 'case', 'return', 'and', 'or']:
                     return Token(TokenType.KEYWORD, value, SrcPos(self.filename, self.line, start_column, token_length))
                 else:
                     return Token(TokenType.IDENTIFIER, value, SrcPos(self.filename, self.line, start_column, token_length))
             
+            # Recognize operators
+            if self.current_char == '<':
+                start_column = self.column
+                self.advance()
+                token_length = start_column - self.column
+                if self.current_char == '=':
+                    self.advance()
+                    token_length = start_column - self.column
+                    return Token(TokenType.OPERATOR, '<=', SrcPos(self.filename, self.line, start_column, token_length))
+                return Token(TokenType.OPERATOR, '<', SrcPos(self.filename, self.line, start_column, token_length))
+            
+            if self.current_char == '>':
+                start_column = self.column
+                self.advance()
+                token_length = start_column - self.column
+                if self.current_char == '=':
+                    self.advance()
+                    token_length = start_column - self.column
+                    return Token(TokenType.OPERATOR, '>=', SrcPos(self.filename, self.line, start_column, token_length))
+                return Token(TokenType.OPERATOR, '>', SrcPos(self.filename, self.line, start_column, token_length))
+            
+            if self.current_char == '=':
+                start_column = self.column
+                self.advance()
+                token_length = start_column - self.column
+                if self.current_char == '=':
+                    self.advance()
+                    token_length = start_column - self.column
+                    return Token(TokenType.OPERATOR, '==', SrcPos(self.filename, self.line, start_column, token_length))
+                return Token(TokenType.OPERATOR, '=', SrcPos(self.filename, self.line, start_column, token_length))  # For assignments
+            
+            if self.current_char == '!':
+                start_column = self.column
+                self.advance()
+                token_length = start_column - self.column
+                if self.current_char == '=':
+                    self.advance()
+                    token_length = start_column - self.column
+                    return Token(TokenType.OPERATOR, '!=', SrcPos(self.filename, self.line, start_column, token_length))
+            
+            # Recognize 'and' and 'or'
+            if self.current_char.isalpha():
+                identifier, start_column = self.get_identifier()
+                token_length = self.column - start_column
+                if identifier in ['and', 'or']:
+                    return Token(TokenType.KEYWORD, identifier, SrcPos(self.filename, self.line, start_column, token_length))
+    
             if self.current_char.isdigit():
                 value, start_column, token_type = self.get_number()
                 token_length = self.column - start_column
