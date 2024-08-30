@@ -1,5 +1,6 @@
 import sys
 from sourcepos import SrcPos
+from syntax import Syntax
 from tokentype import Token, TokenType
 
 class Lexer:
@@ -10,52 +11,6 @@ class Lexer:
         self.line = 1   # Lines start at 1
         self.column = 1 # Columns start at 1
         self.current_char = self.input_code[self.position] if self.input_code else None
-
-        self.keywords = [
-            "let",
-            "end",
-            "cls",
-            "if",
-            "then",
-            "else",
-            "endif"
-            "for",
-            "to",
-            "next",
-            "proc",
-            "pend",
-            "dim",
-            "while",
-            "wend",
-            "do",
-            "loop",
-            "select",
-            "case",
-            "return",
-            "and",
-            "or",
-            "type",
-            "field",
-            "tend",
-            "new",
-            "ptr"
-        ]
-
-        self.data_types = [
-            "void",
-            "char",    # 8  bits   [−127, +127]
-            "uchar",   # 8  bits   [0, 255]
-            "short",   # 16 bits   [−32767, +32767]
-            "ushort",  # 16 bits   [0, 65535]
-            "int",     # 32 bits   [-2147483648, 2147483647]
-            "uint",    # 32 bits   [0, 4,294,967,295 ]
-            "long",    # 64 bits   [-9223372036854775808, 9223372036854775807]
-            "ulong",   # 64 bits   [0 to 18446744073709551615]
-            "float",   # 32 bits   [1.2E-38 to 3.4E+38] (6 decimal places)
-            "double",   # 64 bits   [2.3E-308 to 1.7E+308] (15 decimal places)
-            "string",
-            "size"
-        ]
     
     def error(self, srcpos, message="Syntax error"):
         print(f"error at {srcpos.filename}:{srcpos.line}:{srcpos.column} : {message}")
@@ -130,9 +85,9 @@ class Lexer:
             if self.current_char.isalpha() or self.current_char == "_":
                 value, start_column = self.get_identifier()
                 token_length = self.column - start_column
-                if value in self.data_types:
+                if value in Syntax.data_types:
                     return Token(TokenType.DATATYPE, value, SrcPos(self.filename, self.line, start_column, token_length))
-                if value in self.keywords:
+                if value in Syntax.keywords:
                     return Token(TokenType.KEYWORD, value, SrcPos(self.filename, self.line, start_column, token_length))
                 else:
                     return Token(TokenType.IDENTIFIER, value, SrcPos(self.filename, self.line, start_column, token_length))
