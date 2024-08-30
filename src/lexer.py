@@ -37,7 +37,8 @@ class Lexer:
             "type",
             "field",
             "tend",
-            "new"
+            "new",
+            "ptr"
         ]
 
         self.data_types = [
@@ -52,7 +53,8 @@ class Lexer:
             "ulong",   # 64 bits   [0 to 18446744073709551615]
             "float",   # 32 bits   [1.2E-38 to 3.4E+38] (6 decimal places)
             "double",   # 64 bits   [2.3E-308 to 1.7E+308] (15 decimal places)
-            "string"
+            "string",
+            "size"
         ]
     
     def error(self, srcpos, message="Syntax error"):

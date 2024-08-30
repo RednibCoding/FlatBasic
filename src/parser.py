@@ -26,11 +26,14 @@ class Parser:
         else:
             self.error(f"Expected token '{token_value}', got '{self.current_token.value}'")
     
-    def declare_variable(self, var_name, var_type, scope='global'):
+    def declare_variable(self, var_name, var_type, is_pointer=False, scope='global'):
         symbol_table = self.global_symbol_table if scope == 'global' else self.local_symbol_table
         if var_name in symbol_table:
             self.error(f"Variable '{var_name}' already declared in this scope")
-        symbol_table[var_name] = var_type
+        # Store the variable as a dictionary with 'type' and 'is_pointer'
+        symbol_table[var_name] = {'type': var_type, 'is_pointer': is_pointer}
+
+
     
     def parse_field_access(self, instance_name):
         token = self.current_token
@@ -325,11 +328,17 @@ class Parser:
     
     def parse_let(self):
         token = self.current_token
-        self.expect("let")  # Eat LET
+        self.expect("let")
         var_name = self.current_token.value
         self.eat(TokenType.IDENTIFIER)
-        self.expect(":")  # Eat ':'
+        self.expect(":")
 
+        # Check for pointer type
+        is_pointer = False
+        if self.current_token.value == "ptr":
+            is_pointer = True
+            self.eat(TokenType.KEYWORD)
+        
         # Check if the type is built-in or user-defined
         if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
             var_type = self.current_token.value
@@ -337,7 +346,7 @@ class Parser:
         else:
             self.error(f"Expected a valid type for variable '{var_name}', got '{self.current_token.value}'")
 
-        self.expect("=")  # Eat '='
+        self.expect("=")
         
         # Handle new instance creation
         if self.current_token.type == TokenType.KEYWORD and self.current_token.value == "new":
@@ -345,14 +354,14 @@ class Parser:
         else:
             value = self.expr()
         
-        # Ensure the variable is declared in the correct scope
+        # Declare the variable in the appropriate scope with pointer flag
         if self.local_symbol_table is not None:
-            self.declare_variable(var_name, var_type, scope='local')
+            self.declare_variable(var_name, var_type, is_pointer, scope='local')
         else:
-            self.declare_variable(var_name, var_type, scope='global')
+            self.declare_variable(var_name, var_type, is_pointer, scope='global')
         
-        return LetNode(token.srcpos, var_name, value)
-    
+        return LetNode(token.srcpos, var_name, value, var_type, is_pointer)
+
     def parse_assignment(self):
         token = self.current_token
         var_name = self.current_token.value
@@ -421,11 +430,20 @@ class Parser:
 
     def parse_new_instance(self):
         self.expect("new")
+
+        # Check for pointer type
+        is_pointer = False
+        if self.current_token.value == "ptr":
+            is_pointer = True
+            self.eat(TokenType.KEYWORD)
+
         type_name = self.current_token.value
         if type_name not in self.user_type_table:
-            self.error(f"Type '{type_name}' is not defined", self.current_token)
+            self.error(f"Type '{type_name}' is not defined")
         self.eat(TokenType.IDENTIFIER)
-        return NewInstanceNode(type_name)
+
+        return NewInstanceNode(type_name, is_pointer)
+
 
     
     def statement(self):

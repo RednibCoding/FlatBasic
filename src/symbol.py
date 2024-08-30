@@ -1,0 +1,14 @@
+class Symbol:
+    def __init__(self, var_type, is_pointer=False, callable=False, params=None, return_type=None):
+        self.var_type = var_type
+        self.is_pointer = is_pointer
+        self.callable = callable
+        self.params = params if params is not None else []
+        self.return_type = return_type
+
+    def __repr__(self):
+        pointer_str = 'ptr ' if self.is_pointer else ''
+        callable_str = ' (callable)' if self.callable else ''
+        params_str = f"Params: {self.params}, " if self.callable else ''
+        return_type_str = f"Returns: {self.return_type}" if self.callable else ''
+        return f"Symbol({pointer_str}{self.var_type}{callable_str}, {params_str}{return_type_str})"

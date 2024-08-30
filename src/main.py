@@ -64,8 +64,28 @@ let y: int = 10
 let z: double = x + y  # This should promote y to double
 """
 
+input_code4 = """
+
+type Car
+tend
+
+let myIntPtr: ptr int = 20
+let myCarPtr: ptr Car = new ptr Car
+
+let x: int = myIntPtr + 5
+let y: ptr int = myIntPtr + 1
+let z: int = myIntPtr == y  # Comparison between pointers should be valid
+"""
+
+input_code5 = """
+proc myProc(): void pend
+
+let myProcPtr: ptr size = myProc
+myProcPtr()
+"""
+
 # Set up the lexer, parser, and semantic analyzer
-lexer = Lexer(input_code3, "test.mb")
+lexer = Lexer(input_code5, "test.mb")
 parser = Parser(lexer)
 ast = parser.parse()
 
