@@ -1,3 +1,4 @@
+import sys
 from sourcepos import SrcPos
 from tokentype import Token, TokenType
 
@@ -9,6 +10,10 @@ class Lexer:
         self.line = 1   # Lines start at 1
         self.column = 1 # Columns start at 1
         self.current_char = self.input_code[self.position] if self.input_code else None
+    
+    def error(self, srcpos, message="Syntax error"):
+        print(f"error at {srcpos.filename}:{srcpos.line}:{srcpos.column} : {message}")
+        sys.exit()
     
     def advance(self):
         if self.current_char == '\n':
@@ -72,7 +77,7 @@ class Lexer:
                 token_length = self.column - start_column
                 if value in ['int', 'flt', 'str', 'chr', 'void']:
                     return Token(TokenType.DATATYPE, value, SrcPos(self.filename, self.line, start_column, token_length))
-                if value in ['let', 'end', 'cls', 'if', 'then', 'else', 'endif' 'for', 'to', 'next', 'proc', 'pend', 'dim', 'while', 'wend', 'do', 'loop', 'select', 'case', 'return', 'and', 'or']:
+                if value in ['let', 'end', 'cls', 'if', 'then', 'else', 'endif' 'for', 'to', 'next', 'proc', 'pend', 'dim', 'while', 'wend', 'do', 'loop', 'select', 'case', 'return', 'and', 'or', 'type', 'field', 'tend', 'new']:
                     return Token(TokenType.KEYWORD, value, SrcPos(self.filename, self.line, start_column, token_length))
                 else:
                     return Token(TokenType.IDENTIFIER, value, SrcPos(self.filename, self.line, start_column, token_length))
@@ -142,10 +147,12 @@ class Lexer:
                 self.advance()
                 return Token(TokenType.OPERATOR, char, SrcPos(self.filename, self.line, start_column, 1))
             
-            if self.current_char in '(),[]':
+            if self.current_char in '.(),[]':
                 start_column = self.column
                 char = self.current_char
                 self.advance()
                 return Token(TokenType.SEPARATOR, char, SrcPos(self.filename, self.line, start_column, 1))
+
+            self.error(SrcPos(self.filename, self.line, self.column, 1), f"unexpected token {self.current_char}")
         
         return Token(TokenType.EOF, None, SrcPos(self.filename, self.line, self.column, 0))

@@ -225,3 +225,22 @@ class Semanter:
         if node.array_name in self.global_scope:
             self.error(f"array '{node.array_name}' already defined", node)
         self.global_scope[node.array_name] = node.array_type
+
+    def visit_TypeNode(self, node):
+        self.global_scope[node.type_name] = node.fields
+
+    def visit_NewInstanceNode(self, node):
+        if node.type_name not in self.global_scope:
+            self.error(f"Type '{node.type_name}' not defined", node)
+        return node.type_name
+
+    def visit_FieldAccessNode(self, node):
+        instance_type = self.visit(node.instance)
+        if instance_type not in self.global_scope:
+            self.error(f"Type '{instance_type}' not defined", node)
+
+        fields = self.global_scope[instance_type]
+        if node.field_name not in fields:
+            self.error(f"Field '{node.field_name}' not found in type '{instance_type}'", node)
+        
+        return fields[node.field_name][0]  # Return the type of the field

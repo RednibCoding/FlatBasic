@@ -28,8 +28,30 @@ else
 endif
 """
 
+input_code2 = """
+type Engine
+    field speed: flt = 10
+tend
+
+type Car
+    field brand: str = "BMW"
+    field engine: Engine
+tend
+
+let mycar: Car = new Car
+let carSpeed: flt = mycar.engine.speed
+carSpeed = mycar.engine.speed
+mycar.engine.speed = 20
+
+proc changeBrand(car: Car, newBrand: str): void
+    car.brand = newBrand
+pend
+
+changeBrand(mycar, mycar.brand)
+"""
+
 # Set up the lexer, parser, and semantic analyzer
-lexer = Lexer(input_code, "test.mb")
+lexer = Lexer(input_code2, "test.mb")
 parser = Parser(lexer)
 ast = parser.parse()
 

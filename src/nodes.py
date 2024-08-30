@@ -280,3 +280,31 @@ class ProgramNode(ASTNode):
         ind = '    ' * indent
         stmts = '\n'.join(stmt.__repr__(indent + 1) for stmt in self.statements)
         return f"{ind}{self.node_name}(\n{stmts}\n{ind})"
+
+class TypeNode(ASTNode):
+    def __init__(self, type_name, fields):
+        self.type_name = type_name
+        self.fields = fields
+    
+    def __repr__(self, indent=0):
+        ind = '    ' * indent
+        fields_repr = '\n'.join(f"{ind}  {name}: {type} = {value}" for name, (type, value) in self.fields.items())
+        return f"{ind}TypeNode({self.type_name})\n{fields_repr}"
+
+class NewInstanceNode(ASTNode):
+    def __init__(self, type_name):
+        self.type_name = type_name
+    
+    def __repr__(self, indent=0):
+        ind = '    ' * indent
+        return f"{ind}NewInstanceNode({self.type_name})"
+
+class FieldAccessNode(ASTNode):
+    def __init__(self, srcpos, instance, field_name):
+        self.srcpos = srcpos
+        self.instance = instance
+        self.field_name = field_name
+    
+    def __repr__(self, indent=0):
+        ind = '    ' * indent
+        return f"{ind}FieldAccessNode(\n{self.instance.__repr__(indent + 1)},\n{ind}  Field: {self.field_name}\n{ind})"

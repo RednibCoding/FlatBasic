@@ -8,11 +8,12 @@ class Parser:
         self.current_token = lexer.get_next_token()
         self.global_symbol_table = {}  # Global scope
         self.local_symbol_table = None  # Local scope, set within procedures
+        self.user_type_table = {} # Table for user-defined types
     
     def error(self, message="Syntax error"):
         print(f"error at {self.current_token.srcpos.filename}:{self.current_token.srcpos.line}:{self.current_token.srcpos.column} : {message}")
         sys.exit()
-        
+
     def eat(self, token_type):
         if self.current_token.type == token_type:
             self.current_token = self.lexer.get_next_token()
@@ -30,6 +31,40 @@ class Parser:
         if var_name in symbol_table:
             self.error(f"Variable '{var_name}' already declared in this scope")
         symbol_table[var_name] = var_type
+    
+    def parse_field_access(self, instance_name):
+        token = self.current_token
+        instance = IdentifierNode(token.srcpos, instance_name)
+
+        # Determine the type of the initial instance from the local or global scope
+        if self.local_symbol_table is not None and instance_name in self.local_symbol_table:
+            current_type = self.local_symbol_table[instance_name]
+        elif instance_name in self.global_symbol_table:
+            current_type = self.global_symbol_table[instance_name]
+        else:
+            self.error(f"Variable '{instance_name}' not declared")
+
+        while self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '.':
+            self.eat(TokenType.SEPARATOR)  # Eat '.'
+            field_name = self.current_token.value
+            self.eat(TokenType.IDENTIFIER)
+
+            # Check if the field exists on the current type
+            if current_type not in self.user_type_table:
+                self.error(f"Type '{current_type}' is not a user-defined type")
+
+            fields = self.user_type_table[current_type]
+            if field_name not in fields:
+                self.error(f"Field '{field_name}' does not exist on type '{current_type}'")
+
+            # Update the current type to the type of the field
+            current_type = fields[field_name][0]  # Get the type of the field
+
+            # Update the instance to the new FieldAccessNode
+            instance = FieldAccessNode(token.srcpos, instance, field_name)
+
+        return instance
+
     
     def factor(self):
         token = self.current_token
@@ -50,6 +85,8 @@ class Parser:
             return NumberNode(token.srcpos, token.value)
         elif token.type == TokenType.IDENTIFIER:
             self.eat(TokenType.IDENTIFIER)
+            if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '.':
+                return self.parse_field_access(token.value)
             if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '(':
                 return self.parse_function_call(token.value)
             if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '[':
@@ -128,25 +165,6 @@ class Parser:
         
         return node
     
-    def parse_let(self):
-        token = self.current_token
-        self.expect("let")  # Eat LET
-        var_name = self.current_token.value
-        self.eat(TokenType.IDENTIFIER)
-        self.expect(":")  # Eat ':'
-        var_type = self.current_token.value
-        self.eat(TokenType.DATATYPE)
-        self.expect("=")  # Eat '='
-        expr = self.expr()
-        
-        # Ensure the variable is declared in the correct scope
-        if self.local_symbol_table is not None:
-            self.declare_variable(var_name, var_type, scope='local')
-        else:
-            self.declare_variable(var_name, var_type, scope='global')
-        
-        return LetNode(token.srcpos, var_name, expr)
-    
     def parse_if(self):
         token = self.current_token
         self.expect("if")  # Eat IF
@@ -223,10 +241,10 @@ class Parser:
     
     def parse_proc(self):
         token = self.current_token
-        self.expect("proc")  # Eat PROC
+        self.expect("proc")
         name = self.current_token.value
         self.eat(TokenType.IDENTIFIER)
-        self.expect("(")  # Eat '('
+        self.expect("(")
         
         # Local symbol table
         self.local_symbol_table = {}
@@ -235,28 +253,34 @@ class Parser:
         while self.current_token.type != TokenType.SEPARATOR or self.current_token.value != ')':
             param_name = self.current_token.value
             self.eat(TokenType.IDENTIFIER)
-            self.expect(":")  # Eat ':'
-            param_type = self.current_token.value
-            self.eat(TokenType.DATATYPE)
+            self.expect(":")
+            
+            # Check if the type is built-in or user-defined
+            if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
+                param_type = self.current_token.value
+                self.eat(self.current_token.type)
+            else:
+                self.error(f"Expected a valid type for parameter '{param_name}', got '{self.current_token.value}'")
+            
             params.append((param_name, param_type))
             self.declare_variable(param_name, param_type, scope='local')
             if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == ',':
-                self.expect(",")  # Eat ','
-        self.expect(")")  # Eat ')'
-        self.expect(":")  # Eat ':'
-        return_type = self.current_token.value
-        self.eat(TokenType.DATATYPE)
+                self.expect(",")
+        self.expect(")")
+        self.expect(":")
+        
+        # Check if the return type is built-in or user-defined
+        if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
+            return_type = self.current_token.value
+            self.eat(self.current_token.type)
+        else:
+            self.error(f"Expected a valid return type, got '{self.current_token.value}'")
         
         body_statements = []
-        while self.current_token.value != 'pend':  # Parse until we find 'pend'
-            if self.current_token.value == "proc":
-                self.error("Unexpected token 'proc'")
+        while self.current_token.value != 'pend':
             body_statements.append(self.statement())
         
-        # Ensure the procedure ends with 'pend'
-        if self.current_token.value != 'pend':
-            self.error("Expected 'pend' to close procedure")
-        self.expect("pend")  # Eat 'pend'
+        self.expect("pend")
         
         # Clear the local scope after the procedure is parsed
         self.local_symbol_table = None
@@ -281,7 +305,6 @@ class Parser:
         array_type = self.current_token.value
         self.eat(TokenType.DATATYPE)
         return DimNode(token.srcpos, array_name, size, array_type)
-
     
     def parse_function_call(self, name):
         token = self.current_token
@@ -299,25 +322,102 @@ class Parser:
         self.expect(")")  # Eat ')'
         
         return FunctionCallNode(token.srcpos, name, arguments)
+    
+    def parse_let(self):
+        token = self.current_token
+        self.expect("let")  # Eat LET
+        var_name = self.current_token.value
+        self.eat(TokenType.IDENTIFIER)
+        self.expect(":")  # Eat ':'
 
+        # Check if the type is built-in or user-defined
+        if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
+            var_type = self.current_token.value
+            self.eat(self.current_token.type)
+        else:
+            self.error(f"Expected a valid type for variable '{var_name}', got '{self.current_token.value}'")
+
+        self.expect("=")  # Eat '='
+        
+        # Handle new instance creation
+        if self.current_token.type == TokenType.KEYWORD and self.current_token.value == "new":
+            value = self.parse_new_instance()
+        else:
+            value = self.expr()
+        
+        # Ensure the variable is declared in the correct scope
+        if self.local_symbol_table is not None:
+            self.declare_variable(var_name, var_type, scope='local')
+        else:
+            self.declare_variable(var_name, var_type, scope='global')
+        
+        return LetNode(token.srcpos, var_name, value)
     
     def parse_assignment(self):
         token = self.current_token
         var_name = self.current_token.value
         self.eat(TokenType.IDENTIFIER)
         
-        if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '[':
-            self.expect("[")  # Eat '['
-            index = self.expr()
-            self.expect("]")  # Eat ']'
-            self.expect("=")  # Eat '='
-            value = self.expr()
-            return ArrayAssignmentNode(token.srcpos, var_name, index, value)
-        
-        self.expect("=")  # Eat '='
-        value = self.expr()
-        return AssignmentNode(token.srcpos, var_name, value)
+        node = IdentifierNode(token.srcpos, var_name)
 
+        # Handle field access
+        while self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '.':
+            self.eat(TokenType.SEPARATOR)
+            field_name = self.current_token.value
+            self.eat(TokenType.IDENTIFIER)
+            node = FieldAccessNode(token.srcpos, node, field_name)
+        
+        self.expect("=")
+        
+        # Handle new instance creation
+        if self.current_token.type == TokenType.KEYWORD and self.current_token.value == "new":
+            value = self.parse_new_instance()
+        else:
+            value = self.expr()
+        
+        return AssignmentNode(token.srcpos, node, value)
+
+    def parse_type_definition(self):
+        self.expect("type")
+        type_name = self.current_token.value
+        self.eat(TokenType.IDENTIFIER)
+        
+        fields = {}
+        while self.current_token.value != "tend":
+            self.expect("field")
+            field_name = self.current_token.value
+            self.eat(TokenType.IDENTIFIER)
+            self.expect(":")
+            
+            # Check if the type is built-in or user-defined
+            if self.current_token.type == TokenType.DATATYPE or self.current_token.value in self.user_type_table:
+                field_type = self.current_token.value
+                self.eat(self.current_token.type)
+            else:
+                self.error(f"Expected a valid type for field '{field_name}', got '{self.current_token.value}'")
+            
+            # Handle default values
+            default_value = None
+            if self.current_token.type == TokenType.OPERATOR and self.current_token.value == '=':
+                self.eat(TokenType.OPERATOR)
+                default_value = self.expr()
+            
+            fields[field_name] = (field_type, default_value)
+        
+        self.expect("tend")
+        
+        # Store the type definition in the user_type_table
+        self.user_type_table[type_name] = fields
+        
+        return TypeNode(type_name, fields)
+
+    def parse_new_instance(self):
+        self.expect("new")
+        type_name = self.current_token.value
+        if type_name not in self.user_type_table:
+            self.error(f"Type '{type_name}' is not defined", self.current_token)
+        self.eat(TokenType.IDENTIFIER)
+        return NewInstanceNode(type_name)
 
     
     def statement(self):
@@ -340,6 +440,8 @@ class Parser:
                 return self.parse_dim()
             elif self.current_token.value == 'return':
                 return self.parse_return()
+            elif self.current_token.value == 'type':
+                return self.parse_type_definition()
         elif self.current_token.type == TokenType.IDENTIFIER:
             name = self.current_token.value
             if self.lexer.input_code[self.lexer.position] == '(':
@@ -348,8 +450,6 @@ class Parser:
             else:
                 return self.parse_assignment()
         self.error(f"Unexpected statement '{self.current_token.value}'")
-
-
 
 
     def parse(self):
