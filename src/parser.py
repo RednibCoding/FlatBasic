@@ -33,6 +33,13 @@ class Parser:
     
     def factor(self):
         token = self.current_token
+
+        # Handle unary operators
+        if token.type == TokenType.OPERATOR and token.value in ['-', '+', '!']:
+            self.eat(TokenType.OPERATOR)
+            node = self.factor()
+            return UnaryOpNode(token.srcpos, token.value, node)
+    
         if token.type == TokenType.SEPARATOR and token.value == '(':
             self.expect('(')  # Eat '('
             node = self.expr()

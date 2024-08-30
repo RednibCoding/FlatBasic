@@ -116,6 +116,8 @@ class Lexer:
                     self.advance()
                     token_length = start_column - self.column
                     return Token(TokenType.OPERATOR, '!=', SrcPos(self.filename, self.line, start_column, token_length))
+                return Token(TokenType.OPERATOR, '!', SrcPos(self.filename, self.line, start_column, token_length))  # For assignments
+                    
             
             # Recognize 'and' and 'or'
             if self.current_char.isalpha():

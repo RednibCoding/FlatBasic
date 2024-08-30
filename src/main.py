@@ -10,7 +10,7 @@ proc calculate(a: int, b: int): flt
 pend
 
 proc check_conditions(x: int, y: int): int
-    if !x > y and y != 0 then
+    if !(x > y) and y != 0 then
         return 1
     else
         return 0

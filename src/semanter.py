@@ -24,6 +24,24 @@ class Semanter:
     def visit_ProgramNode(self, node):
         for stmt in node.statements:
             self.visit(stmt)
+    
+    def visit_UnaryOpNode(self, node):
+        expr_type = self.visit(node.expr)
+        
+        # Handle the unary minus and plus (numeric)
+        if node.op in ['-', '+']:
+            if expr_type not in ['int', 'flt']:
+                self.error(f"Unary '{node.op}' operator requires numeric operand, got {expr_type}", node)
+            return expr_type  # The result type is the same as the operand
+        
+        # Handle logical negation
+        if node.op == '!':
+            if expr_type != 'int':
+                self.error(f"Unary '!' operator requires an integer (boolean) operand, got {expr_type}", node)
+            return 'int'  # Logical negation returns an integer (boolean)
+        
+        self.error(f"Unknown unary operator {node.op}", node)
+
 
     def visit_BinOpNode(self, node):
         left_type = self.visit(node.left)

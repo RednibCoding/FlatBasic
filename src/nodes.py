@@ -1,6 +1,17 @@
 class ASTNode:
     pass
 
+class UnaryOpNode(ASTNode):
+    def __init__(self, srcpos, op, expr):
+        self.srcpos = srcpos
+        self.op = op
+        self.expr = expr
+    
+    def __repr__(self, indent=0):
+        ind = '    ' * indent
+        return f"{ind}UnaryOpNode(\n{ind}  '{self.op}',\n{self.expr.__repr__(indent + 1)}\n{ind})"
+
+
 class BinOpNode(ASTNode):
     def __init__(self, srcpos, left, op, right):
         self.node_name = "BinOpNode"
