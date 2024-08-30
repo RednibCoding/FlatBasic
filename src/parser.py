@@ -358,7 +358,15 @@ class Parser:
         var_name = self.current_token.value
         self.eat(TokenType.IDENTIFIER)
         
+        # Start with an identifier node
         node = IdentifierNode(token.srcpos, var_name)
+
+        # Handle array access
+        if self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '[':
+            self.eat(TokenType.SEPARATOR)  # Eat the '['
+            index_expr = self.expr()  # Parse the index expression
+            self.expect(']')  # Expect and consume the ']'
+            node = ArrayAccessNode(token.srcpos, var_name, index_expr)
 
         # Handle field access
         while self.current_token.type == TokenType.SEPARATOR and self.current_token.value == '.':

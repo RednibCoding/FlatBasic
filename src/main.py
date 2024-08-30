@@ -19,7 +19,7 @@ pend
 
 let x: int = 10
 let y: int = 20
-let z: flt = calculate(x, y)
+let z: float = calculate(x, y)
 
 if x < y or z >= 15 then
     print("Condition met")
@@ -30,28 +30,41 @@ endif
 
 input_code2 = """
 type Engine
-    field speed: flt = 10
+    field speed: float = 10
 tend
 
 type Car
-    field brand: str = "BMW"
+    field brand: string = "BMW"
     field engine: Engine
 tend
 
 let mycar: Car = new Car
-let carSpeed: flt = mycar.engine.speed
+let carSpeed: float = mycar.engine.speed
 carSpeed = mycar.engine.speed
 mycar.engine.speed = 20
 
-proc changeBrand(car: Car, newBrand: str): void
+proc changeBrand(car: Car, newBrand: string): void
     car.brand = newBrand
 pend
 
 changeBrand(mycar, mycar.brand)
 """
 
+input_code3 = """
+dim myArray[10]: int
+let index: int = 2
+myArray[index] = 42
+
+let invalidIndex: float = 2.5
+myArray[invalidIndex] = 100  # This should trigger an error
+
+let x: double = 5.5
+let y: int = 10
+let z: double = x + y  # This should promote y to double
+"""
+
 # Set up the lexer, parser, and semantic analyzer
-lexer = Lexer(input_code2, "test.mb")
+lexer = Lexer(input_code3, "test.mb")
 parser = Parser(lexer)
 ast = parser.parse()
 

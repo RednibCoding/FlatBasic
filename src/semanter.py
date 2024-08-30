@@ -28,9 +28,11 @@ class Semanter:
     def visit_UnaryOpNode(self, node):
         expr_type = self.visit(node.expr)
         
+        numeric_types = ["char", "uchar", "short", "ushort", "int", "uint", "long", "ulong", "float", "double"]
+
         # Handle the unary minus and plus (numeric)
         if node.op in ['-', '+']:
-            if expr_type not in ['int', 'flt']:
+            if expr_type not in numeric_types:
                 self.error(f"Unary '{node.op}' operator requires numeric operand, got {expr_type}", node)
             return expr_type  # The result type is the same as the operand
         
@@ -42,31 +44,29 @@ class Semanter:
         
         self.error(f"Unknown unary operator {node.op}", node)
 
-
     def visit_BinOpNode(self, node):
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
-        
+
+        numeric_types = ["char", "uchar", "short", "ushort", "int", "uint", "long", "ulong", "float", "double"]
+
         # Arithmetic operations
         if node.op in ['+', '-', '*', '/']:
-            if left_type not in ['int', 'flt'] or right_type not in ['int', 'flt']:
+            if left_type not in numeric_types or right_type not in numeric_types:
                 self.error(f"Arithmetic operations require numeric operands, got {left_type} and {right_type}", node)
             
-            # Promote to 'flt' if either operand is a float
-            if left_type == 'flt' or right_type == 'flt':
-                return 'flt'
-            return 'int'
+            # Promote to the bigger type or float/double
+            return self.promote_type(left_type, right_type)
         
         # Comparison operations
         if node.op in ['<', '<=', '>', '>=', '==', '!=']:
-            if left_type not in ['int', 'flt'] or right_type not in ['int', 'flt']:
+            if left_type not in numeric_types or right_type not in numeric_types:
                 self.error(f"Comparison operations require numeric operands, got {left_type} and {right_type}", node)
             
-            # Allow comparison between int and flt
+            # Allow comparison between different numeric types
             if left_type != right_type:
-                if 'int' in [left_type, right_type] and 'flt' in [left_type, right_type]:
-                    return 'int'  # Comparison result is always 'int'
-                else:
+                promoted_type = self.promote_type(left_type, right_type)
+                if promoted_type not in numeric_types:
                     self.error(f"Comparison operations require compatible numeric types, got {left_type} and {right_type}", node)
             
             # Comparisons return 'int' as a boolean type
@@ -80,12 +80,36 @@ class Semanter:
         
         self.error(f"Unknown binary operator {node.op}", node)
 
+    def promote_type(self, left_type, right_type):
+        # Define a type hierarchy
+        type_hierarchy = {
+            "char": 1,
+            "uchar": 2,
+            "short": 3,
+            "ushort": 4,
+            "int": 5,
+            "uint": 6,
+            "long": 7,
+            "ulong": 8,
+            "float": 9,
+            "double": 10
+        }
+
+        # Promote to the type with the highest rank
+        if type_hierarchy[left_type] > type_hierarchy[right_type]:
+            return left_type
+        else:
+            return right_type
 
     def visit_NumberNode(self, node):
-        return 'int' if '.' not in str(node.value) else 'flt'
+        value_str = str(node.value)
+        if '.' in value_str:
+            return 'double'  # By default, floating-point literals are treated as double
+        else:
+            return 'int'  # Default to 'int' for integer literals
 
     def visit_StringNode(self, node):
-        return 'str'
+        return 'string'
 
     def visit_IdentifierNode(self, node):
         if self.local_scope is not None and node.value in self.local_scope:
@@ -125,8 +149,9 @@ class Semanter:
             self.error(f"array '{node.array_name}' not defined", node)
 
         index_type = self.visit(node.index)
-        if index_type != 'int':
-            self.error(f"array index must be an integer, got {index_type}", node)
+        valid_index_types = ['char', 'uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong']
+        if index_type not in valid_index_types:
+            self.error(f"array index must be a non-floating-point numeric type, got {index_type}", node)
 
         array_type = self.global_scope[node.array_name]
         value_type = self.visit(node.value)
@@ -138,8 +163,9 @@ class Semanter:
             self.error(f"array '{node.array_name}' not defined", node)
 
         index_type = self.visit(node.index)
-        if index_type != 'int':
-            self.error(f"array index must be an integer, got {index_type}", node)
+        valid_index_types = ['char', 'uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong']
+        if index_type not in valid_index_types:
+            self.error(f"array index must be a non-floating-point numeric type, got {index_type}", node)
 
         return self.global_scope[node.array_name]
 
